@@ -22,7 +22,7 @@
     (str (:authorization-url config) "?"
          "response_type=code"
          "&client_id=" (:client-id config)
-         "&redirect_uri=" (URLEncoder/encode (:client-secret config))
+         "&redirect_uri=" (URLEncoder/encode (:redirect-url config))
          "&scope=" (apply str (interpose "%20" scopes))
          "&state=" state
          "&audience=" (URLEncoder/encode (:audience config))
@@ -57,7 +57,7 @@
 
 (defn jwt-has-scopes?
     [decoded-jwt required-scopes]
-    (let [scopes (clojure.string/split (.asString (.getClaim decoded-jwt "scope")) #" ")]
+    (let [scopes (clojure.string/split (or (.asString (.getClaim decoded-jwt "scope")) "") #" ")]
         (every? #(.contains scopes %) required-scopes)))
 
 (defn process-jwt
@@ -80,7 +80,7 @@
     [code config]
     (let [token-params {"grant_type"    "authorization_code"
                         "code"          code
-                        "redirect_uri"  (:redirect-uro config)
+                        "redirect_uri"  (:redirect-url config)
                         "client_id"     (:client-id config)
                         "client_secret" (:client-secret config)}
           response     (client/post (:token-url config) {:form-params token-params :throw-exceptions false})]
@@ -117,7 +117,7 @@
 
                     (jwt-verification-failed-response "could not decode jwt"))
 
-                (jwt-verification-failed-response (:error body))))))
+                (jwt-verification-failed-response (:error-description body))))))
 
 (defn initiate-authorization-code-grant
     [request config]
@@ -143,14 +143,14 @@
           config (get-config (get-in request [:headers "x-forwarded-host"]))]
         (if (or (nil? token) (process-jwt token config))
             (initiate-authorization-code-grant request config)
-            (response/redirect (get-target-url (:headers request))))))
+            {:status 204})))
 
 (defroutes open-routes
     ; handle auth code from oauth authorization code grant
-    (GET "/auth" request (auth-code-handler (:session request) (get-in request [:params :code]) (get-in request [:params :state]) (get-config (get-in request [:headers "x-forwarded-host"]))))
+    (GET "/callback" request (auth-code-handler (:session request) (get-in request [:params :code]) (get-in request [:params :state]) (get-config (get-in request [:headers "x-forwarded-host"]))))
 
     ; test auth for request
-    (GET "/secure" request (secure-handler request))
+    (GET "/authorize" request (secure-handler request))
 
     (GET "/" request {:body {:message "working!"}})
     )
