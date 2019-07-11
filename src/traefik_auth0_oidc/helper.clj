@@ -16,6 +16,14 @@
 	[e]
 	(.replace e \_ \-))
 
+(defn write-json
+	[msg]
+	(json/write-str msg :key-fn #(entities-fn (name %))))
+
+(defn read-json
+	[msg]
+	(json/read-str msg :key-fn #(keyword (identifiers-fn %))))
+
 (defn serve-resource-file
 	[filename content-type]
 	(response/content-type (response/resource-response filename {:root "public"}) content-type))

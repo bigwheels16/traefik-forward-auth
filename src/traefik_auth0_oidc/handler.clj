@@ -18,41 +18,41 @@
              (com.auth0.jwt.exceptions JWTVerificationException)))
 
 (defn get-oauth2-authorization-url
-    [scopes state]
-    (str (config/AUTHORIZATION_URL) "?"
+    [scopes state config]
+    (str (:authorization-url config) "?"
          "response_type=code"
-         "&client_id=" (config/CLIENT_ID)
-         "&redirect_uri=" (URLEncoder/encode (config/REDIRECT_URI))
+         "&client_id=" (:client-id config)
+         "&redirect_uri=" (URLEncoder/encode (:client-secret config))
          "&scope=" (apply str (interpose "%20" scopes))
          "&state=" state
-         "&audience=" (URLEncoder/encode (config/AUDIENCE))
+         "&audience=" (URLEncoder/encode (:audience config))
          ))
 
 (defn get-key-by-id
-    [key-id]
-    (let [provider (UrlJwkProvider. (config/JWKS_DOMAIN))]
+    [key-id config]
+    (let [provider (UrlJwkProvider. (:jwks-domain config))]
         (.get provider key-id)))
 
 (def get-jwt-verifier
     (memoize
-        (fn [decoded-jwt]
+        (fn [decoded-jwt config]
             (let [key-id                   (.getKeyId decoded-jwt)
-                  key                      (get-key-by-id key-id)
+                  key                      (get-key-by-id key-id config)
                   ^RSAPublicKey public-key (.getPublicKey key)
                   alg                      (Algorithm/RSA256 public-key nil)]
 
                 (-> (JWT/require alg)
-                    (.withIssuer (into-array [(config/ISSUER)]))
-                    (.withAudience (into-array [(config/AUDIENCE)]))
+                    (.withIssuer (into-array [(:issuer config)]))
+                    (.withAudience (into-array [(:audience config)]))
                     (.acceptLeeway 10)
                     (.build))))))
 
 (defn verify-jwt
-    [decoded-jwt]
+    [decoded-jwt config]
     (try
-            (-> (get-jwt-verifier decoded-jwt)
-                (.verify decoded-jwt))
-            nil
+        (-> (get-jwt-verifier decoded-jwt config)
+            (.verify decoded-jwt))
+        nil
         (catch JWTVerificationException e (.getMessage e))))
 
 (defn jwt-has-scopes?
@@ -61,9 +61,9 @@
         (every? #(.contains scopes %) required-scopes)))
 
 (defn process-jwt
-    [decoded-jwt required-scopes]
-    (or (verify-jwt decoded-jwt)
-        (if (not (jwt-has-scopes? decoded-jwt required-scopes))
+    [decoded-jwt config]
+    (or (verify-jwt decoded-jwt config)
+        (if (not (jwt-has-scopes? decoded-jwt (:scopes config)))
             "missing required scopes")))
 
 (defn get-target-url
@@ -77,13 +77,13 @@
             "/")))
 
 (defn exchange-auth-code-for-token
-    [code]
+    [code config]
     (let [token-params {"grant_type"    "authorization_code"
                         "code"          code
-                        "redirect_uri"  (config/REDIRECT_URI)
-                        "client_id"     (config/CLIENT_ID)
-                        "client_secret" (config/CLIENT_SECRET)}
-          response     (client/post (config/TOKEN_URL) {:form-params token-params :throw-exceptions false})]
+                        "redirect_uri"  (:redirect-uro config)
+                        "client_id"     (:client-id config)
+                        "client_secret" (:client-secret config)}
+          response     (client/post (:token-url config) {:form-params token-params :throw-exceptions false})]
         (json/read-str (:body response) :key-fn #(keyword (helper/identifiers-fn %)))))
 
 (defn jwt-verification-failed-response
@@ -92,7 +92,7 @@
      :body   {:message (str "jwt verification failed: " message)}})
 
 (defn auth-code-handler
-    [session code state]
+    [session code state config]
 
     ; if state not equal, display "invalid state"
     ; if error_description param, display error
@@ -102,14 +102,14 @@
 
         {:body {:message "invalid state"} :status 400}
 
-        (let [body        (exchange-auth-code-for-token code)
-              target-url  (:target-url session)]
+        (let [body       (exchange-auth-code-for-token code config)
+              target-url (:target-url session)]
 
             ;(println body)
 
             (if-let [jwt-token (:access-token body)]
                 (if-let [decoded-jwt (JWT/decode jwt-token)]
-                    (if-let [message (process-jwt decoded-jwt (config/SCOPES))]
+                    (if-let [message (process-jwt decoded-jwt config)]
                         (jwt-verification-failed-response message)
 
                         (-> (response/redirect target-url)
@@ -120,26 +120,34 @@
                 (jwt-verification-failed-response (:error body))))))
 
 (defn initiate-authorization-code-grant
-    [request]
-    (let [scopes     (config/SCOPES)
-          state      (helper/generate-random 20) ; prevents CSRF attacks; also allows app state to be restored after flow
+    [request config]
+    (let [scopes     (:scopes config)
+          state      (helper/generate-random 20)            ; prevents CSRF attacks; also allows app state to be restored after flow
           ;nonce     (helper/generate-random 20) ; only needed for OpenID Connect
-          url        (get-oauth2-authorization-url scopes state)
+          url        (get-oauth2-authorization-url scopes state config)
           target-url (get-target-url (:headers request))]
 
         (-> (response/redirect url)
             (assoc :session {:state state :target-url target-url}))))
 
+(def get-config
+    (memoize
+        (fn [domain]
+            (let [config-map (config/load-config-map)]
+                (or (config/get-domain-config config-map domain)
+                    (config/get-domain-config config-map "default"))))))
+
 (defn secure-handler
     [request]
-    (let [token (:token (:session request))]
-        (if (or (nil? token) (process-jwt token (config/SCOPES)))
-            (initiate-authorization-code-grant request)
+    (let [token  (:token (:session request))
+          config (get-config (get-in request [:headers "x-forwarded-host"]))]
+        (if (or (nil? token) (process-jwt token config))
+            (initiate-authorization-code-grant request config)
             (response/redirect (get-target-url (:headers request))))))
 
 (defroutes open-routes
     ; handle auth code from oauth authorization code grant
-    (GET "/auth" request (auth-code-handler (:session request) (get-in request [:params :code]) (get-in request [:params :state])))
+    (GET "/auth" request (auth-code-handler (:session request) (get-in request [:params :code]) (get-in request [:params :state]) (get-config (get-in request [:headers "x-forwarded-host"]))))
 
     ; test auth for request
     (GET "/secure" request (secure-handler request))

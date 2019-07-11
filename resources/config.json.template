@@ -1,0 +1,24 @@
+{
+  "default": {
+    "authorization_url": "https://your-domain.auth0.com/authorize",
+    "token_url": "https://your-domain.auth0.com/oauth/token",
+
+    "client_id": "",
+    "client_secret": "",
+
+    "audience": "https://your-domain.com",
+    "issuer": "https://your-domain.auth0.com/",
+    "redirect_url": "https://your-domain.com/auth",
+    "jwks_domain": "https://your-domain.auth0.com/",
+    "scopes": [
+      "scope1"
+    ]
+  },
+  "site1.example.com": {
+    "$extends": "default",
+    "redirect_url": "https://site1.example.com/auth",
+    "scopes": [
+      "scope2"
+    ]
+  }
+}
