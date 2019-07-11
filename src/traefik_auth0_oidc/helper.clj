@@ -1,5 +1,6 @@
 (ns traefik-auth0-oidc.helper
-	(:require [ring.util.response :as response]))
+	(:require [ring.util.response :as response]
+			  [clojure.data.json :as json]))
 
 (defn generate-random
 	[length]
