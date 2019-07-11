@@ -89,14 +89,14 @@
 (defn jwt-verification-failed-response
     [message]
     {:status 401
-     :body   {:message (str "jwt verification failed: " message)}})
+     :body   {:message (str "jwt verification failed: " message)}
+     :session nil})
 
 (defn auth-code-handler
     [session code state config]
 
     ; if state not equal, display "invalid state"
     ; if error_description param, display error
-    ;(println session)
 
     (if (not= (:state session) state)
 
@@ -122,7 +122,7 @@
 (defn initiate-authorization-code-grant
     [request config]
     (let [scopes     (:scopes config)
-          state      (helper/generate-random 20)            ; prevents CSRF attacks; also allows app state to be restored after flow
+          state      (or (get-in request [:session :state]) (helper/generate-random 20))  ; only generate if a state is not already set in the session; prevents CSRF attacks; also allows app state to be restored after flow
           ;nonce     (helper/generate-random 20) ; only needed for OpenID Connect
           url        (get-oauth2-authorization-url scopes state config)
           target-url (get-target-url (:headers request))]
