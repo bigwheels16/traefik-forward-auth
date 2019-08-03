@@ -4,6 +4,7 @@
               [ring.middleware.defaults :refer [wrap-defaults api-defaults]]
               [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
               [ring.middleware.session :as session]
+              [ring.middleware.session.memory :as memory]
               [ring.util.response :as response]
               [traefik-auth0-oidc.middleware :as middleware]
               [traefik-auth0-oidc.helper :as helper]
@@ -16,6 +17,8 @@
              (java.security.interfaces RSAPublicKey)
              (com.auth0.jwt JWT)
              (com.auth0.jwt.exceptions JWTVerificationException)))
+
+(def session-store (memory/memory-store))
 
 (defn get-oauth2-authorization-url
     [scopes state config]
@@ -100,7 +103,7 @@
 
     (if (not= (:state session) state)
 
-        {:body {:message "invalid state"} :status 400}
+        {:body {:message (str "invalid state; expecting: " (:state session))} :status 400}
 
         (let [body       (exchange-auth-code-for-token code config)
               target-url (:target-url session)]
@@ -143,7 +146,17 @@
           config (get-config (get-in request [:headers "x-forwarded-host"]))]
         (if (or (nil? token) (process-jwt token config))
             (initiate-authorization-code-grant request config)
-            {:status 204})))
+            {:status 204
+             :headers {"X-Access-Token" (.getToken token)}})))
+
+(defn get-access-token
+    [session-id]
+    (let [session (ring.middleware.session.store/read-session session-store session-id)
+          payload (.getToken (:token session))]
+
+        (if payload
+            {:body payload}
+            {:status 404})))
 
 (defroutes open-routes
     ; handle auth code from oauth authorization code grant
@@ -152,7 +165,7 @@
     ; test auth for request
     (GET "/authorize" request (secure-handler request))
 
-    (GET "/" request {:body {:message "working!"}})
+    (GET "/access-token/:session-id" [session-id] (get-access-token session-id))
     )
 
 (defroutes unknown-route
@@ -165,5 +178,7 @@
              middleware/trim-trailing-slash
              (wrap-json-body {:keywords? #(keyword (helper/identifiers-fn %))})
              (wrap-defaults api-defaults)
-             (session/wrap-session {:cookie-attrs {:secure false :http-only true}})
+             (session/wrap-session {:store session-store
+                                    :cookie-name "auth-session"
+                                    :cookie-attrs {:secure false :http-only true}})
              ))
