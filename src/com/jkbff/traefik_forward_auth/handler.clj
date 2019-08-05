@@ -1,4 +1,4 @@
-(ns traefik-auth0-oidc.handler
+(ns com.jkbff.traefik-forward-auth.handler
     (:require [compojure.core :refer :all]
               [compojure.route :as route]
               [ring.middleware.defaults :refer [wrap-defaults api-defaults]]
@@ -6,9 +6,9 @@
               [ring.middleware.session :as session]
               [ring.middleware.session.memory :as memory]
               [ring.util.response :as response]
-              [traefik-auth0-oidc.middleware :as middleware]
-              [traefik-auth0-oidc.helper :as helper]
-              [traefik-auth0-oidc.config :as config]
+              [com.jkbff.traefik-forward-auth.middleware :as middleware]
+              [com.jkbff.traefik-forward-auth.helper :as helper]
+              [com.jkbff.traefik-forward-auth.config :as config]
               [clj-http.client :as client]
               [clojure.data.json :as json])
     (:import (java.net URLEncoder)

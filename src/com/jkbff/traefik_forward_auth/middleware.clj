@@ -1,4 +1,4 @@
-(ns traefik-auth0-oidc.middleware)
+(ns com.jkbff.traefik-forward-auth.middleware)
 
 (defn trim-trailing-slash
 	[handler]

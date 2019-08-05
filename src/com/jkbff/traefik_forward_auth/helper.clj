@@ -1,4 +1,4 @@
-(ns traefik-auth0-oidc.helper
+(ns com.jkbff.traefik-forward-auth.helper
 	(:require [ring.util.response :as response]
 			  [clojure.data.json :as json]))
 

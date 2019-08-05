@@ -1,6 +1,6 @@
-(ns traefik-auth0-oidc.config
+(ns com.jkbff.traefik-forward-auth.config
     (:require [clojure.java.io :as io]
-              [traefik-auth0-oidc.helper :as helper]))
+              [com.jkbff.traefik-forward-auth.helper :as helper]))
 
 (defn get-domain-config
     [m domain]
