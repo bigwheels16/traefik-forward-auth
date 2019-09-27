@@ -7,4 +7,4 @@ RUN lein deps
 
 EXPOSE 80
 
-CMD ["./start.sh"]
+CMD ["lein", "ring", "server-headless"]
