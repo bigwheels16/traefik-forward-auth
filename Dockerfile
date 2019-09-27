@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY project.clj project.clj
 RUN lein deps
+COPY ./ ./
 
 EXPOSE 80
 
