@@ -151,8 +151,9 @@
 
 (defn get-access-token
     [session-id]
-    (let [session (ring.middleware.session.store/read-session session-store session-id)
-          payload (.getToken (:token session))]
+    (let [payload (some-> (ring.middleware.session.store/read-session session-store session-id)
+                          :token
+                          .getToken)]
 
         (if payload
             {:body payload}
@@ -178,6 +179,7 @@
              middleware/trim-trailing-slash
              (wrap-json-body {:keywords? #(keyword (helper/identifiers-fn %))})
              (wrap-defaults api-defaults)
+             log-request-and-response
              (session/wrap-session {:store session-store
                                     :cookie-name "auth-session"
                                     :cookie-attrs {:secure false :http-only true}})
