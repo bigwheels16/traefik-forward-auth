@@ -168,7 +168,7 @@
 
     (GET "/access-token/:session-id" [session-id] (get-access-token session-id))
 
-    (GET "/health" request {:status 200})
+    (GET "/health" request {:status 200 :body {:message "OK"}})
     )
 
 (defroutes unknown-route
