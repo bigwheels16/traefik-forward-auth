@@ -4,7 +4,8 @@ WORKDIR /app
 
 COPY project.clj project.clj
 RUN lein deps
+COPY ./ ./
 
 EXPOSE 80
 
-CMD ["./start.sh"]
+CMD ["lein", "ring", "server-headless"]
