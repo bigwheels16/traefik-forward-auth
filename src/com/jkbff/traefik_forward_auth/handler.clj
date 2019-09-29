@@ -167,6 +167,8 @@
     (GET "/authorize" request (secure-handler request))
 
     (GET "/access-token/:session-id" [session-id] (get-access-token session-id))
+
+    (GET "/health" request {:status 200})
     )
 
 (defroutes unknown-route
