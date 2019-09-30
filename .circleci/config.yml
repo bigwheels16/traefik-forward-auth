@@ -1,0 +1,32 @@
+version: 2.0
+
+jobs:
+  build:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    working_directory: ~/app
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: |
+          docker build -t docker.jkbff.com/traefik-forward-auth:latest .
+          docker push docker.jkbff.com/traefik-forward-auth:latest
+  deploy:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    working_directory: ~/app
+    steps:
+      - run: |
+          wget -O kubectl https://storage.googleapis.com/kubernetes-release/release/$K8S_VERSION/bin/linux/amd64/kubectl
+          chmod +x kubectl
+          mkdir ~/.kube
+          echo $KUBE_CONFIG | base64 -d > ~/.kube/config
+          ./kubectl rollout restart deployment/traefik-forward-auth-deployment
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
