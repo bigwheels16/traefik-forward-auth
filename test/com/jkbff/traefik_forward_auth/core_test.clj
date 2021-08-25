@@ -26,5 +26,4 @@
                         :url3 "http://example.com/abc/123"
                         :scopes ["test"]}
               result (handler/replace-variables-in-config config hostname)]
-            (println result)
             (is (= expected result)))))
