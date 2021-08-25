@@ -16,7 +16,8 @@
              (com.auth0.jwt.algorithms Algorithm)
              (java.security.interfaces RSAPublicKey)
              (com.auth0.jwt JWT)
-             (com.auth0.jwt.exceptions JWTVerificationException)))
+             (com.auth0.jwt.exceptions JWTVerificationException)
+             (java.nio.charset StandardCharsets)))
 
 (def session-store (memory/memory-store))
 
@@ -25,15 +26,15 @@
     (str (:authorization-url config) "?"
          "response_type=code"
          "&client_id=" (:client-id config)
-         "&redirect_uri=" (URLEncoder/encode (:redirect-url config))
+         "&redirect_uri=" (URLEncoder/encode (:redirect-url config) StandardCharsets/UTF_8)
          "&scope=" (apply str (interpose "%20" scopes))
          "&state=" state
-         "&audience=" (URLEncoder/encode (:audience config))
+         "&audience=" (URLEncoder/encode (:audience config) StandardCharsets/UTF_8)
          ))
 
 (defn get-key-by-id
     [key-id config]
-    (let [provider (UrlJwkProvider. (:jwks-domain config))]
+    (let [provider (UrlJwkProvider. ^String (:jwks-domain config))]
         (.get provider key-id)))
 
 (def get-jwt-verifier
@@ -133,12 +134,26 @@
         (-> (response/redirect url)
             (assoc :session {:state state :target-url target-url}))))
 
+(defn replace-all
+    [s replacements]
+    (reduce (fn [acc [match replacement]] (if (string? acc)
+                                              (clojure.string/replace acc match replacement)
+                                              acc))
+            s
+            replacements))
+
+(defn replace-variables-in-config
+    [config hostname]
+    (let [replacements [["$HOSTNAME" hostname]]]
+        (reduce (fn [acc [k v]] (assoc acc k (replace-all v replacements))) {} config)))
+
 (def get-config
     (memoize
-        (fn [domain]
-            (let [config-map (config/load-config-map)]
-                (or (config/get-domain-config config-map domain)
-                    (config/get-domain-config config-map "default"))))))
+        (fn [hostname]
+            (let [config-map (config/load-config-map)
+                  config (or (config/get-domain-config config-map hostname)
+                             (config/get-domain-config config-map "default"))]
+                (replace-variables-in-config config hostname)))))
 
 (defn secure-handler
     [request]
