@@ -195,7 +195,7 @@
              middleware/trim-trailing-slash
              (wrap-json-body {:keywords? #(keyword (helper/identifiers-fn %))})
              (wrap-defaults api-defaults)
-             middleware/log-request-and-response
+             ;middleware/log-request-and-response
              (session/wrap-session {:store session-store
                                     :cookie-name "auth-session"
                                     :cookie-attrs {:secure false :http-only true}})
