@@ -17,7 +17,7 @@
              (java.security.interfaces RSAPublicKey)
              (com.auth0.jwt JWT)
              (com.auth0.jwt.exceptions JWTVerificationException)
-             (java.nio.charset StandardCharsets)))
+             (java.nio.charset StandardCharsets Charset)))
 
 (def session-store (memory/memory-store))
 
@@ -26,10 +26,10 @@
     (str (:authorization-url config) "?"
          "response_type=code"
          "&client_id=" (:client-id config)
-         "&redirect_uri=" (URLEncoder/encode (:redirect-url config) StandardCharsets/UTF_8)
+         "&redirect_uri=" (URLEncoder/encode (:redirect-url config) ^Charset StandardCharsets/UTF_8)
          "&scope=" (apply str (interpose "%20" scopes))
          "&state=" state
-         "&audience=" (URLEncoder/encode (:audience config) StandardCharsets/UTF_8)
+         "&audience=" (URLEncoder/encode (:audience config) ^Charset StandardCharsets/UTF_8)
          ))
 
 (defn get-key-by-id
